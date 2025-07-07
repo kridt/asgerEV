@@ -1,0 +1,97 @@
+[
+  {
+    "eventsCount": 15,
+    "name": "Argentina - Primera B Nacional",
+    "slug": "argentina-primera-b-nacional"
+  },
+  {
+    "eventsCount": 1,
+    "name": "Australia - Queensland Premier League 2",
+    "slug": "australia-queensland-premier-league-2"
+  },
+  {
+    "eventsCount": 10,
+    "name": "Brazil - Serie A",
+    "slug": "brazil-serie-a"
+  },
+  {
+    "eventsCount": 2,
+    "name": "CONCACAF - Gold Cup",
+    "slug": "concacaf-gold-cup"
+  },
+  {
+    "eventsCount": 8,
+    "name": "China - Super League",
+    "slug": "china-super-league"
+  },
+  {
+    "eventsCount": 8,
+    "name": "UEFA - EURO Women",
+    "slug": "uefa-euro-women"
+  },
+  {
+    "eventsCount": 10,
+    "name": "England - Premier League",
+    "slug": "england-premier-league"
+  },
+  {
+    "eventsCount": 12,
+    "name": "FIFA - Club World Cup",
+    "slug": "fifa-club-world-cup"
+  },
+  {
+    "eventsCount": 6,
+    "name": "Finland - Veikkausliiga",
+    "slug": "finland-veikkausliiga"
+  },
+  {
+    "eventsCount": 10,
+    "name": "Italy - Serie A",
+    "slug": "italy-serie-a"
+  },
+  {
+    "eventsCount": 8,
+    "name": "Japan - J League",
+    "slug": "japan-j-league"
+  },
+  {
+    "eventsCount": 8,
+    "name": "Norway - Eliteserien",
+    "slug": "norway-eliteserien"
+  },
+  {
+    "eventsCount": 8,
+    "name": "Sweden - Allsvenskan",
+    "slug": "sweden-allsvenskan"
+  },
+  {
+    "eventsCount": 1,
+    "name": "UEFA - Super Cup",
+    "slug": "uefa-super-cup"
+  },
+  {
+    "eventsCount": 1,
+    "name": "UEFA - U19 European Championship",
+    "slug": "uefa-u19-european-championship"
+  },
+  {
+    "eventsCount": 2,
+    "name": "UEFA - U21 European Championship",
+    "slug": "uefa-u21-european-championship"
+  },
+  {
+    "eventsCount": 12,
+    "name": "USA - Major League Soccer",
+    "slug": "usa-major-league-soccer"
+  },
+  {
+    "eventsCount": 14,
+    "name": "UEFA - Champions League Qualifiers",
+    "slug": "uefa-champions-league-qualifiers"
+  },
+  {
+    "eventsCount": 8,
+    "name": "CONMEBOL - Copa Libertadores",
+    "slug": "conmebol-copa-libertadores"
+  }
+]
