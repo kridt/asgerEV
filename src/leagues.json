@@ -90,6 +90,16 @@
     "slug": "uefa-champions-league-qualifiers"
   },
   {
+    "eventsCount": 22,
+    "name": "UEFA - Conference League Qualifiers",
+    "slug": "uefa-conference-league-qualifiers"
+  },
+  {
+    "eventsCount": 8,
+    "name": "UEFA - Europa League Qualifiers",
+    "slug": "uefa-europa-league-qualifiers"
+  },
+  {
     "eventsCount": 8,
     "name": "CONMEBOL - Copa Libertadores",
     "slug": "conmebol-copa-libertadores"
