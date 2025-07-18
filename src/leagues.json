@@ -20,6 +20,16 @@
     "slug": "concacaf-gold-cup"
   },
   {
+    "eventsCount": 6,
+    "name": "Denmark - Division 1",
+    "slug": "denmark-division-1"
+  },
+   {
+    "eventsCount": 6,
+    "name": "Denmark - Superliga",
+    "slug": "denmark-superliga"
+  },
+  {
     "eventsCount": 8,
     "name": "China - Super League",
     "slug": "china-super-league"
