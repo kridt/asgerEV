@@ -33,10 +33,10 @@ function App() {
   const [activeSport, setActiveSport] = useState(null);
   const [activeLeague, setActiveLeague] = useState(null);
   const [showAllEV, setShowAllEV] = useState(false);
+  const [sortDirection, setSortDirection] = useState("asc");
 
   const validSports = ["Football", "Tennis", "Basketball"];
   const footballLeagueWhitelist = footballLeagues.map((l) => l.name);
-
   const apiKey = import.meta.env.VITE_API_KEY;
 
   const isRelevantBet = (b) => {
@@ -73,8 +73,8 @@ function App() {
         const res = await fetch(
           `https://api.odds-api.io/v2/value-bets?apiKey=${apiKey}&bookmaker=Bet365&includeEventDetails=true`
         );
-
         const data = await res.json();
+        console.log(data);
 
         if (Array.isArray(data)) {
           const now = new Date();
@@ -121,7 +121,7 @@ function App() {
         ]
       : [];
 
-  const filteredBets = activeBets
+  const filteredBetsRaw = activeBets
     .filter((b) =>
       activeSport === "Football"
         ? !activeLeague ||
@@ -129,9 +129,19 @@ function App() {
           b.event?.league === activeLeague
         : true
     )
-    .filter((b) => showAllEV || b.expectedValue > 104);
+    .filter((b) => showAllEV || b.expectedValue > 104)
+    .sort((a, b) =>
+      sortDirection === "asc"
+        ? new Date(a.event?.date) - new Date(b.event?.date)
+        : new Date(b.event?.date) - new Date(a.event?.date)
+    );
 
-  console.log("Vises på skærm:", filteredBets);
+  const groupedBets = filteredBetsRaw.reduce((acc, bet) => {
+    const key = `${bet.event?.home}-${bet.event?.away}-${bet.event?.date}`;
+    acc[key] = acc[key] || [];
+    acc[key].push(bet);
+    return acc;
+  }, {});
 
   return (
     <div
@@ -197,6 +207,27 @@ function App() {
             </label>
           </div>
 
+          {/* Sortering dropdown */}
+          <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+            <label>
+              Sortering:{" "}
+              <select
+                value={sortDirection}
+                onChange={(e) => setSortDirection(e.target.value)}
+                style={{
+                  padding: "0.3rem",
+                  background: "#1e1e1e",
+                  color: "#fff",
+                  border: "1px solid #555",
+                  borderRadius: "4px",
+                }}
+              >
+                <option value="asc">Tidligste kamp først</option>
+                <option value="desc">Seneste kamp først</option>
+              </select>
+            </label>
+          </div>
+
           {/* League Tabs */}
           {activeSport === "Football" && leaguesWithBets.length > 1 && (
             <div
@@ -235,33 +266,24 @@ function App() {
             </div>
           )}
 
-          {/* Kamp-count */}
           <p style={{ color: "#aaa", textAlign: "center" }}>
-            {filteredBets.length} kamp(e) vises lige nu
+            {Object.keys(groupedBets).length} kamp(e) vises lige nu
           </p>
 
-          {/* Ingen kampe */}
-          {filteredBets.length === 0 && (
+          {Object.entries(groupedBets).length === 0 && (
             <p style={{ textAlign: "center", color: "#777" }}>
               Ingen kampe i øjeblikket
             </p>
           )}
 
-          {/* Kampkort */}
           <div
             style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
           >
-            {filteredBets.map((bet) => {
-              const fair = parseFloat(bet.market?.[bet.betSide]);
-              const bookmaker = parseFloat(bet.bookmakerOdds?.[bet.betSide]);
-
-              // Brug sikker faktor så vi aldrig går under 104% EV
-              const safetyFactor = 1.04 / 0.9393; // ≈ 1.107
-              const minOdds = fair * safetyFactor;
-
+            {Object.entries(groupedBets).map(([key, group]) => {
+              const first = group[0];
               return (
                 <div
-                  key={bet.id}
+                  key={key}
                   style={{
                     background: "#1e1e1e",
                     padding: "1rem",
@@ -276,65 +298,80 @@ function App() {
                       color: "#fff",
                     }}
                   >
-                    {bet.event?.home} vs {bet.event?.away}
+                    {first.event?.home} vs {first.event?.away}
                   </div>
 
                   <div style={{ color: "#aaa", fontSize: "0.9rem" }}>
-                    {bet.event?.league}
+                    {first.event?.league}
                   </div>
 
                   <div style={{ margin: "0.5rem 0" }}>
                     Starttid (DK):{" "}
-                    <strong>{formatDanishTime(bet.event?.date)}</strong>
+                    <strong>{formatDanishTime(first.event?.date)}</strong>
                   </div>
 
-                  <div>
-                    Marked:{" "}
-                    <strong>
-                      {bet.market?.name} {bet.market?.hdp}
-                    </strong>
-                  </div>
+                  {group.map((bet, i) => {
+                    const fair = parseFloat(bet.market?.[bet.betSide]);
+                    const bookmaker = parseFloat(
+                      bet.bookmakerOdds?.[bet.betSide]
+                    );
+                    const safetyFactor = 1.04 / 0.9393;
+                    const minOdds = fair * safetyFactor;
 
-                  <div>
-                    Vi spiller: <strong>{bet.betSide}</strong>
-                  </div>
-
-                  <div>
-                    Fair odds: <strong>{fair}</strong>
-                  </div>
-
-                  <div>
-                    Bookmaker odds: <strong>{bookmaker}</strong>
-                  </div>
-
-                  <div style={{ margin: "0.5rem 0" }}>
-                    EV%:{" "}
-                    <strong
-                      style={{
-                        color: bet.expectedValue > 104 ? "#00ff88" : "#f44336",
-                      }}
-                    >
-                      {bet.expectedValue.toFixed(2)}%
-                    </strong>
-                  </div>
-
-                  {bet.expectedValue > 104 && (
-                    <div>
-                      Mindste odds for 104% EV (sikker justeret):{" "}
-                      <strong style={{ color: "#ffd54f" }}>
-                        {minOdds.toFixed(3)}
-                      </strong>
-                    </div>
-                  )}
-
-                  <a
-                    href={bet.bookmakerOdds?.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "#4fc3f7", textDecoration: "underline" }}
-                  >
-                    Gå til odds
-                  </a>
+                    return (
+                      <div
+                        key={bet.id}
+                        style={{ marginTop: i === 0 ? 0 : "1rem" }}
+                      >
+                        {i !== 0 && <hr style={{ border: "1px solid #333" }} />}
+                        <div style={{ marginTop: "0.5rem" }}>
+                          Marked:{" "}
+                          <strong>
+                            {bet.market?.name} {bet.market?.hdp}
+                          </strong>
+                        </div>
+                        <div>
+                          Vi spiller: <strong>{bet.betSide}</strong>
+                        </div>
+                        <div>
+                          Fair odds: <strong>{fair}</strong>
+                        </div>
+                        <div>
+                          Bookmaker odds: <strong>{bookmaker}</strong>
+                        </div>
+                        <div style={{ margin: "0.5rem 0" }}>
+                          EV%:{" "}
+                          <strong
+                            style={{
+                              color:
+                                bet.expectedValue > 104 ? "#00ff88" : "#f44336",
+                            }}
+                          >
+                            {bet.expectedValue.toFixed(2)}%
+                          </strong>
+                        </div>
+                        {bet.expectedValue > 104 && (
+                          <div>
+                            Mindste odds for 104% EV (sikker justeret):{" "}
+                            <strong style={{ color: "#ffd54f" }}>
+                              {minOdds.toFixed(3)}
+                            </strong>
+                          </div>
+                        )}
+                        <a
+                          href={bet.bookmakerOdds?.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: "#4fc3f7",
+                            textDecoration: "underline",
+                          }}
+                        >
+                          Gå til odds
+                        </a>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
