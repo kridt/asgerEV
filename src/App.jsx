@@ -1,4 +1,3 @@
-// App.jsx
 import { useEffect, useState } from "react";
 import footballLeagues from "./leagues.json";
 import Localbase from "localbase";
@@ -87,16 +86,32 @@ function App({ isMyBets }) {
           `https://api.odds-api.io/v2/value-bets?apiKey=${apiKey}&bookmaker=Bet365&includeEventDetails=true`
         );
         const data = await res.json();
+
         if (Array.isArray(data)) {
           const now = new Date();
           const threeDaysAhead = new Date(
             now.getTime() + 3 * 24 * 60 * 60 * 1000
           );
-          const filtered = data.filter((b) => {
-            const matchDate = new Date(b.event?.date);
-            return matchDate <= threeDaysAhead && isRelevantBet(b);
-          });
-          setBets(filtered);
+
+          const filteredAndEnhanced = data
+            .filter((b) => {
+              const matchDate = new Date(b.event?.date);
+              return matchDate <= threeDaysAhead && isRelevantBet(b);
+            })
+            .map((b) => {
+              const fairOdds = parseFloat(b.market?.[b.betSide]);
+              const bookmakerOdds = parseFloat(b.bookmakerOdds?.[b.betSide]);
+              const expectedValue =
+                fairOdds && bookmakerOdds
+                  ? (bookmakerOdds / fairOdds) * 100
+                  : 0;
+              return {
+                ...b,
+                expectedValue,
+              };
+            });
+
+          setBets(filteredAndEnhanced);
         }
       } catch (err) {
         console.error("Fejl ved hentning:", err);
@@ -104,6 +119,7 @@ function App({ isMyBets }) {
         setLoading(false);
       }
     }
+
     fetchData();
   }, [isMyBets]);
 
@@ -217,7 +233,7 @@ function App({ isMyBets }) {
         ))}
       </div>
 
-      {/* EV Checkbox + Sort */}
+      {/* EV Filter + Sort */}
       <div style={{ textAlign: "center", marginBottom: "1rem" }}>
         <label>
           <input
@@ -327,7 +343,7 @@ function App({ isMyBets }) {
               {group.map((bet, i) => {
                 const fair = parseFloat(bet.market?.[bet.betSide]);
                 const bookmaker = parseFloat(bet.bookmakerOdds?.[bet.betSide]);
-                const minOdds = fair * (1.04 / 0.9393);
+                const minOdds = fair * 1.04;
                 const isStarred = myBets.some((b) => b.id === bet.id);
                 return (
                   <div key={bet.id} style={{ marginTop: i === 0 ? 0 : "1rem" }}>
