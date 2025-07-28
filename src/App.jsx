@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import footballLeagues from "./leagues.json";
+import bookmakers from "./bookmakers.json";
 import Localbase from "localbase";
 import { Link, useLocation } from "react-router-dom";
 
@@ -34,6 +35,10 @@ function App({ isMyBets }) {
   const [showAllEV, setShowAllEV] = useState(false);
   const [sortDirection, setSortDirection] = useState("asc");
   const [myBets, setMyBets] = useState([]);
+  const [selectedBookmaker, setSelectedBookmaker] = useState(
+    bookmakers[0].name
+  );
+
   const validSports = ["Football", "Tennis", "Basketball"];
   const footballLeagueWhitelist = footballLeagues.map((l) => l.name);
   const apiKey = import.meta.env.VITE_API_KEY;
@@ -77,13 +82,16 @@ function App({ isMyBets }) {
       const saved = await db.collection("mybets").get();
       setMyBets(saved);
       if (isMyBets) {
-        setBets(saved);
+        const filtered = saved.filter((b) => b.bookmaker === selectedBookmaker);
+        setBets(filtered);
         setLoading(false);
         return;
       }
+
       try {
+        setLoading(true);
         const res = await fetch(
-          `https://api.odds-api.io/v2/value-bets?apiKey=${apiKey}&bookmaker=Bet365&includeEventDetails=true`
+          `https://api.odds-api.io/v2/value-bets?apiKey=${apiKey}&bookmaker=${selectedBookmaker}&includeEventDetails=true`
         );
         const data = await res.json();
 
@@ -121,7 +129,7 @@ function App({ isMyBets }) {
     }
 
     fetchData();
-  }, [isMyBets]);
+  }, [isMyBets, selectedBookmaker]);
 
   const grouped = bets.reduce((acc, bet) => {
     const sport = bet.event?.sport || "Ukendt";
@@ -200,6 +208,38 @@ function App({ isMyBets }) {
             Gå til Mine Væddemål
           </Link>
         )}
+      </div>
+
+      {/* Bookmaker knapper */}
+      <div
+        style={{
+          display: "flex",
+          gap: "0.5rem",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          marginBottom: "1rem",
+        }}
+      >
+        {bookmakers.map((bm) => {
+          const decoded = decodeURIComponent(bm.name);
+          return (
+            <button
+              key={bm.name}
+              onClick={() => setSelectedBookmaker(bm.name)}
+              style={{
+                padding: "0.4rem 1rem",
+                borderRadius: "5px",
+                border: "1px solid #555",
+                background:
+                  bm.name === selectedBookmaker ? "#1e1e1e" : "#2a2a2a",
+                color: bm.name === selectedBookmaker ? "#00ff88" : "#ccc",
+                cursor: "pointer",
+              }}
+            >
+              {decoded}
+            </button>
+          );
+        })}
       </div>
 
       {/* Sport Tabs */}
@@ -397,7 +437,10 @@ function App({ isMyBets }) {
                       href={bet.bookmakerOdds?.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: "#4fc3f7", textDecoration: "underline" }}
+                      style={{
+                        color: "#4fc3f7",
+                        textDecoration: "underline",
+                      }}
                     >
                       Gå til odds
                     </a>
