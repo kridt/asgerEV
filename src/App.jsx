@@ -1,97 +1,97 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import Localbase from "localbase";
 import footballLeagues from "./leagues.json";
 import bookmakers from "./bookmakers.json";
-import Localbase from "localbase";
-import { Link, useLocation } from "react-router-dom";
+import useTheme from "./hooks/useTheme";
+import { cn } from "./lib/ui";
 
+import HeaderBar from "./components/HeaderBar";
+import SegmentedControl from "./components/SegmentedControl";
+import BookmakerPills from "./components/BookmakerPills";
+import SkeletonCard from "./components/SkeletonCard";
+import EmptyState from "./components/EmptyState";
+import MatchCard from "./components/MatchCard";
+
+// Local DB
 const db = new Localbase("evbets");
 
-function formatDanishTime(utcDateStr) {
-  const date = new Date(utcDateStr);
-  const dkDate = new Date(
-    date.toLocaleString("en-US", { timeZone: "Europe/Copenhagen" })
-  );
-  const now = new Date();
-  const today = new Date(
-    now.toLocaleDateString("en-US", { timeZone: "Europe/Copenhagen" })
-  );
-  const isToday = dkDate.toDateString() === today.toDateString();
-  const time = dkDate.toLocaleTimeString("da-DK", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const dayMonth = dkDate.toLocaleDateString("da-DK", {
-    day: "numeric",
-    month: "short",
-  });
-  return isToday ? `I dag kl. ${time}` : `${dayMonth} kl. ${time}`;
+// Whitelists/filters
+const VALID_SPORTS = ["Football", "Tennis", "Basketball"];
+const FOOTBALL_WHITELIST = footballLeagues.map((l) => l.name);
+
+function isRelevantBet(b) {
+  const sport = b?.event?.sport;
+  const league = b?.event?.league || "";
+  if (!VALID_SPORTS.includes(sport)) return false;
+  if (sport === "Football")
+    return FOOTBALL_WHITELIST.some((l) => league.includes(l));
+  if (sport === "Tennis") {
+    return [
+      "Wimbledon",
+      "Grand Slam",
+      "ATP",
+      "Australian Open",
+      "Roland Garros",
+      "US Open",
+      "French Open",
+    ].some((t) => league.includes(t));
+  }
+  if (sport === "Basketball") return league.includes("NBA Summer League");
+  return false;
 }
 
-function App({ isMyBets }) {
+export default function App({ isMyBets }) {
+  const apiKey = import.meta.env.VITE_API_KEY;
+  const [theme, setTheme] = useTheme("dark");
+  const dark = theme === "dark";
+
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null); // NEW
   const [activeSport, setActiveSport] = useState("Football");
   const [activeLeague, setActiveLeague] = useState(null);
   const [showAllEV, setShowAllEV] = useState(false);
   const [sortDirection, setSortDirection] = useState("asc");
   const [myBets, setMyBets] = useState([]);
   const [selectedBookmaker, setSelectedBookmaker] = useState(
-    bookmakers[0].name
+    bookmakers?.[0]?.name || "bet365"
   );
 
-  const validSports = ["Football", "Tennis", "Basketball"];
-  const footballLeagueWhitelist = footballLeagues.map((l) => l.name);
-  const apiKey = import.meta.env.VITE_API_KEY;
-  const location = useLocation();
+  // Star/unstar
+  const toggleBet = useCallback(
+    async (bet) => {
+      const exists = myBets.find((b) => b.id === bet.id);
+      if (exists) {
+        await db.collection("mybets").delete(bet.id);
+        setMyBets((prev) => prev.filter((b) => b.id !== bet.id));
+      } else {
+        await db.collection("mybets").add(bet, bet.id);
+        setMyBets((prev) => [...prev, bet]);
+      }
+    },
+    [myBets]
+  );
 
-  const toggleBet = async (bet) => {
-    const exists = myBets.find((b) => b.id === bet.id);
-    if (exists) {
-      await db.collection("mybets").delete(bet.id);
-      setMyBets((prev) => prev.filter((b) => b.id !== bet.id));
-    } else {
-      await db.collection("mybets").add(bet, bet.id);
-      setMyBets((prev) => [...prev, bet]);
-    }
-  };
-
-  const isRelevantBet = (b) => {
-    const sport = b.event?.sport;
-    const league = b.event?.league || "";
-    if (!validSports.includes(sport)) return false;
-    if (sport === "Football") {
-      return footballLeagueWhitelist.some((l) => league.includes(l));
-    }
-    if (sport === "Tennis") {
-      return [
-        "Wimbledon",
-        "Grand Slam",
-        "ATP",
-        "Australian Open",
-        "Roland Garros",
-        "US Open",
-        "French Open",
-      ].some((t) => league.includes(t));
-    }
-    if (sport === "Basketball") return league.includes("NBA Summer League");
-    return false;
-  };
-
-  useEffect(() => {
-    async function fetchData() {
+  // Fetch (wrap i useCallback så vi kan kalde refetch manuelt)
+  const fetchData = useCallback(
+    async (signal) => {
+      // læs stjernede bets
       const saved = await db.collection("mybets").get();
       setMyBets(saved);
+
       if (isMyBets) {
         const filtered = saved.filter((b) => b.bookmaker === selectedBookmaker);
         setBets(filtered);
         setLoading(false);
+        setLastUpdated(new Date());
         return;
       }
 
       try {
         setLoading(true);
         const res = await fetch(
-          `https://api.odds-api.io/v2/value-bets?apiKey=${apiKey}&bookmaker=${selectedBookmaker}&includeEventDetails=true`
+          `https://api.odds-api.io/v2/value-bets?apiKey=${apiKey}&bookmaker=${selectedBookmaker}&includeEventDetails=true`,
+          signal ? { signal } : undefined
         );
         const data = await res.json();
 
@@ -113,346 +113,298 @@ function App({ isMyBets }) {
                 fairOdds && bookmakerOdds
                   ? (bookmakerOdds / fairOdds) * 100
                   : 0;
-              return {
-                ...b,
-                expectedValue,
-              };
+              return { ...b, expectedValue };
             });
 
           setBets(filteredAndEnhanced);
         }
-      } catch (err) {
-        console.error("Fejl ved hentning:", err);
+        setLastUpdated(new Date());
+      } catch (e) {
+        if (e?.name !== "AbortError") {
+          console.error("Fejl ved hentning:", e);
+        }
       } finally {
         setLoading(false);
       }
-    }
+    },
+    [apiKey, isMyBets, selectedBookmaker]
+  );
 
-    fetchData();
-  }, [isMyBets, selectedBookmaker]);
+  // Effekt med AbortController (patch #1)
+  useEffect(() => {
+    const ac = new AbortController();
+    fetchData(ac.signal);
+    return () => ac.abort();
+  }, [fetchData]);
 
-  const grouped = bets.reduce((acc, bet) => {
-    const sport = bet.event?.sport || "Ukendt";
-    acc[sport] = acc[sport] || [];
-    acc[sport].push(bet);
-    return acc;
-  }, {});
+  // Manuelt refetch (patch #4)
+  const refetch = useCallback(() => {
+    fetchData(); // uden signal — vi er ikke i en effect
+  }, [fetchData]);
 
-  const activeBets = grouped[activeSport] || [];
-  const leaguesWithBets =
-    activeSport === "Football"
-      ? [
-          "Alle",
-          ...footballLeagueWhitelist.filter((name) =>
-            activeBets.some((b) => b.event?.league === name)
-          ),
-        ]
-      : [];
+  // Groupings
+  const groupedBySport = useMemo(() => {
+    return bets.reduce((acc, bet) => {
+      const sport = bet?.event?.sport || "Ukendt";
+      (acc[sport] ||= []).push(bet);
+      return acc;
+    }, {});
+  }, [bets]);
 
-  const filteredBetsRaw = activeBets
-    .filter((b) =>
-      activeSport === "Football"
-        ? !activeLeague ||
-          activeLeague === "Alle" ||
-          b.event?.league === activeLeague
-        : true
-    )
-    .filter((b) => showAllEV || b.expectedValue > 104)
-    .sort((a, b) =>
-      sortDirection === "asc"
-        ? new Date(a.event?.date) - new Date(b.event?.date)
-        : new Date(b.event?.date) - new Date(a.event?.date)
+  const activeBets = groupedBySport[activeSport] || [];
+
+  const leaguesWithBets = useMemo(() => {
+    if (activeSport !== "Football") return [];
+    const available = FOOTBALL_WHITELIST.filter((name) =>
+      activeBets.some((b) => b.event?.league === name)
     );
+    return ["Alle", ...available];
+  }, [activeBets]);
 
-  const groupedBets = filteredBetsRaw.reduce((acc, bet) => {
-    const key = `${bet.event?.home}-${bet.event?.away}-${bet.event?.date}`;
-    acc[key] = acc[key] || [];
-    acc[key].push(bet);
-    return acc;
-  }, {});
+  const groupedMatches = useMemo(() => {
+    const base = activeBets
+      .filter((b) =>
+        activeSport === "Football"
+          ? !activeLeague ||
+            activeLeague === "Alle" ||
+            b.event?.league === activeLeague
+          : true
+      )
+      .filter((b) => (showAllEV ? true : b.expectedValue > 104))
+      .sort((a, b) => {
+        const da = new Date(a.event?.date).getTime();
+        const dbt = new Date(b.event?.date).getTime();
+        return sortDirection === "asc" ? da - dbt : dbt - da;
+      });
+
+    const grouped = base.reduce((acc, bet) => {
+      const key = `${bet.event?.home}-${bet.event?.away}-${bet.event?.date}`;
+      (acc[key] ||= []).push(bet);
+      return acc;
+    }, {});
+    return grouped;
+  }, [activeBets, activeLeague, activeSport, showAllEV, sortDirection]);
+
+  const totalGroups = Object.keys(groupedMatches).length;
 
   return (
     <div
-      style={{
-        fontFamily: "sans-serif",
-        background: "#121212",
-        color: "#e0e0e0",
-        minHeight: "100vh",
-        padding: "1rem",
-        maxWidth: "800px",
-        margin: "0 auto",
-      }}
+      className={cn(
+        "relative min-h-screen w-full overflow-x-hidden",
+        dark ? "dark bg-slate-950 text-white" : "bg-slate-100 text-slate-900"
+      )}
     >
-      <h1
-        style={{
-          textAlign: "center",
-          color: isMyBets ? "#00ff88" : "#ffffff",
-          fontSize: "1.8rem",
-        }}
-      >
-        {isMyBets ? "Mine Væddemål" : "EV Bets"}
-      </h1>
-      <div style={{ textAlign: "center", marginBottom: "1rem" }}>
-        {isMyBets ? (
-          <Link
-            to="/"
-            style={{ color: "#4fc3f7", textDecoration: "underline" }}
+      {/* BG (forenklet) */}
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div
+          className={cn(
+            "absolute inset-0 bg-gradient-to-b",
+            dark
+              ? "from-slate-900/80 to-black/90"
+              : "from-white/80 to-slate-100/90"
+          )}
+        />
+        <div className="absolute -top-24 -left-20 h-80 w-80 rounded-full bg-cyan-500/20 blur-3xl" />
+        <div className="absolute top-1/3 -right-24 h-96 w-96 rounded-full bg-fuchsia-500/20 blur-[90px]" />
+        <div className="absolute bottom-0 left-1/3 h-96 w-96 rounded-full bg-emerald-500/10 blur-[100px]" />
+        <div className="liquid-blob absolute left-8 top-24 h-40 w-40 rounded-[40%_60%_60%_40%/40%_40%_60%_60%] bg-white/10" />
+        <div className="liquid-blob2 absolute right-8 top-56 h-48 w-48 rounded-[60%_40%_40%_60%/60%_60%_40%_40%] bg-white/10" />
+      </div>
+
+      {/* PAGE */}
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-24 pt-4 sm:gap-6 sm:px-6 lg:px-8">
+        {/*  <HeaderBar
+          isMyBets={isMyBets}
+          dark={dark}
+          onToggleTheme={() =>
+            setTheme((t) => (t === "dark" ? "light" : "dark"))
+          }
+        /> */}
+
+        {/* Statuslinje: sidst opdateret + Opdater-knap (patch #4) */}
+        <div className="flex items-center justify-between text-xs text-white/70">
+          <span>
+            {lastUpdated
+              ? `Opdateret ${new Date(lastUpdated).toLocaleTimeString("da-DK")}`
+              : "Henter…"}
+          </span>
+          <button
+            onClick={refetch}
+            className="rounded-lg border border-white/15 bg-white/10 px-2 py-1 backdrop-blur-xl hover:bg-white/15"
           >
-            Tilbage til alle bets
-          </Link>
+            Opdater
+          </button>
+        </div>
+
+        {/* Bookmakers */}
+        <section className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-6">
+          <div className="mb-2 text-xs uppercase tracking-wider text-white/70">
+            Bookmakere
+          </div>
+          <div className="no-scrollbar -mx-1 flex snap-x items-center gap-2 overflow-x-auto px-1">
+            <BookmakerPills
+              list={bookmakers}
+              value={selectedBookmaker}
+              onChange={setSelectedBookmaker}
+            />
+          </div>
+        </section>
+
+        {/* Sport & Controls */}
+        <section className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <SegmentedControl
+              options={VALID_SPORTS}
+              value={activeSport}
+              onChange={(v) => {
+                setActiveSport(v);
+                setActiveLeague(null);
+              }}
+            />
+            <div className="flex flex-wrap items-center gap-3 text-xs text-white/80">
+              <label className="inline-flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 cursor-pointer rounded border-white/30 bg-transparent text-emerald-400 focus:ring-emerald-400"
+                  checked={showAllEV}
+                  onChange={(e) => setShowAllEV(e.target.checked)}
+                />
+                Vis EV under 104%
+              </label>
+              <select
+                value={sortDirection}
+                onChange={(e) => setSortDirection(e.target.value)}
+                className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-white/90 backdrop-blur-xl focus:outline-none"
+              >
+                <option value="asc">Tidligste kamp først</option>
+                <option value="desc">Seneste kamp først</option>
+              </select>
+            </div>
+          </div>
+
+          {activeSport === "Football" && leaguesWithBets.length > 1 && (
+            <div className="mt-4">
+              {/* Mobil: behold horisontal scroll (bedre UX) */}
+              <div className="no-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 sm:hidden">
+                {leaguesWithBets.map((lg) => {
+                  const active =
+                    lg === activeLeague ||
+                    (activeLeague === null && lg === "Alle");
+                  return (
+                    <button
+                      key={lg}
+                      onClick={() => setActiveLeague(lg)}
+                      className={
+                        "shrink-0 snap-start rounded-2xl border px-3 h-10 text-sm backdrop-blur-xl transition " +
+                        (active
+                          ? "border-emerald-400/40 bg-emerald-400/20 text-emerald-100"
+                          : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10")
+                      }
+                    >
+                      {lg}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Tablet/desktop: wrap til flere linjer */}
+              <div className="hidden sm:flex sm:flex-wrap sm:gap-2">
+                {leaguesWithBets.map((lg) => {
+                  const active =
+                    lg === activeLeague ||
+                    (activeLeague === null && lg === "Alle");
+                  return (
+                    <button
+                      key={lg}
+                      onClick={() => setActiveLeague(lg)}
+                      className={
+                        "rounded-2xl border px-3 h-10 text-sm backdrop-blur-xl transition " +
+                        (active
+                          ? "border-emerald-400/40 bg-emerald-400/20 text-emerald-100"
+                          : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10")
+                      }
+                    >
+                      {lg}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Counter */}
+        <div className="text-center text-sm text-white/70">
+          {totalGroups} kamp(e) vises lige nu
+        </div>
+
+        {/* Content — stabile keys (patch #2) */}
+        {loading ? (
+          <div className="grid gap-5 sm:gap-6">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        ) : Object.values(groupedMatches).length === 0 ? (
+          <EmptyState />
         ) : (
-          <Link
-            to="/mybets"
-            style={{ color: "#4fc3f7", textDecoration: "underline" }}
-          >
-            Gå til Mine Væddemål
-          </Link>
+          <div className="grid gap-5 sm:gap-6">
+            {Object.values(groupedMatches).map((group) => {
+              const first = group[0];
+              const stableKey = `${first?.event?.id ?? "noid"}-${
+                first?.event?.date
+              }-${first?.event?.home}-${first?.event?.away}`;
+              return (
+                <MatchCard
+                  key={stableKey}
+                  group={group}
+                  myBets={myBets}
+                  onToggleBet={toggleBet}
+                />
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* Bookmaker knapper */}
-      <div
-        style={{
-          display: "flex",
-          gap: "0.5rem",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          marginBottom: "1rem",
-        }}
-      >
-        {bookmakers.map((bm) => {
-          const decoded = decodeURIComponent(bm.name);
-          return (
-            <button
-              key={bm.name}
-              onClick={() => setSelectedBookmaker(bm.name)}
-              style={{
-                padding: "0.4rem 1rem",
-                borderRadius: "5px",
-                border: "1px solid #555",
-                background:
-                  bm.name === selectedBookmaker ? "#1e1e1e" : "#2a2a2a",
-                color: bm.name === selectedBookmaker ? "#00ff88" : "#ccc",
-                cursor: "pointer",
-              }}
-            >
-              {decoded}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Sport Tabs */}
-      <div
-        style={{
-          display: "flex",
-          gap: "0.5rem",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          marginBottom: "1rem",
-        }}
-      >
-        {validSports.map((sport) => (
-          <button
-            key={sport}
-            onClick={() => {
-              setActiveSport(sport);
-              setActiveLeague(null);
-            }}
-            style={{
-              padding: "0.4rem 1rem",
-              borderRadius: "5px",
-              border: "1px solid #555",
-              background: sport === activeSport ? "#1e1e1e" : "#2a2a2a",
-              color: sport === activeSport ? "#00ff88" : "#ccc",
-              cursor: "pointer",
-            }}
-          >
-            {sport}
-          </button>
-        ))}
-      </div>
-
-      {/* EV Filter + Sort */}
-      <div style={{ textAlign: "center", marginBottom: "1rem" }}>
-        <label>
-          <input
-            type="checkbox"
-            checked={showAllEV}
-            onChange={(e) => setShowAllEV(e.target.checked)}
-            style={{ marginRight: "0.5rem" }}
-          />
-          Vis alle EV%, også under 104%
-        </label>
-      </div>
-      <div style={{ textAlign: "center", marginBottom: "1rem" }}>
-        <label>
-          Sortering:{" "}
-          <select
-            value={sortDirection}
-            onChange={(e) => setSortDirection(e.target.value)}
-            style={{
-              padding: "0.3rem",
-              background: "#1e1e1e",
-              color: "#fff",
-              border: "1px solid #555",
-              borderRadius: "4px",
-            }}
-          >
-            <option value="asc">Tidligste kamp først</option>
-            <option value="desc">Seneste kamp først</option>
-          </select>
-        </label>
-      </div>
-
-      {/* League Tabs */}
-      {activeSport === "Football" && leaguesWithBets.length > 1 && (
-        <div
-          style={{
-            display: "flex",
-            gap: "0.4rem",
-            flexWrap: "wrap",
-            marginBottom: "1rem",
-          }}
-        >
-          {leaguesWithBets.map((league) => (
-            <button
-              key={league}
-              onClick={() => setActiveLeague(league)}
-              style={{
-                padding: "0.3rem 0.8rem",
-                fontSize: "0.85rem",
-                borderRadius: "4px",
-                border: "1px solid #555",
-                background:
-                  league === activeLeague ||
-                  (activeLeague === null && league === "Alle")
-                    ? "#1e1e1e"
-                    : "#2a2a2a",
-                color:
-                  league === activeLeague ||
-                  (activeLeague === null && league === "Alle")
-                    ? "#00ff88"
-                    : "#ccc",
-                cursor: "pointer",
-              }}
-            >
-              {league}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <p style={{ color: "#aaa", textAlign: "center" }}>
-        {Object.keys(groupedBets).length} kamp(e) vises lige nu
-      </p>
-      {Object.entries(groupedBets).length === 0 && (
-        <p style={{ textAlign: "center", color: "#777" }}>
-          Ingen kampe i øjeblikket
-        </p>
-      )}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        {Object.entries(groupedBets).map(([key, group]) => {
-          const first = group[0];
-          return (
-            <div
-              key={key}
-              style={{
-                background: "#1e1e1e",
-                padding: "1rem",
-                borderRadius: "8px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "1.1rem",
-                  fontWeight: "bold",
-                  color: "#fff",
-                }}
+      {/* sticky bottom bar på mobil */}
+      <div className="fixed inset-x-0 bottom-0 z-40 block sm:hidden">
+        <div className="mx-auto max-w-6xl px-4 pb-4">
+          <div className="rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-2xl shadow-[0_10px_40px_-20px_rgba(0,0,0,0.6)]">
+            <div className="flex items-center justify-between text-xs text-white/80">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-white/30 bg-transparent text-emerald-400 focus:ring-emerald-400"
+                  checked={showAllEV}
+                  onChange={(e) => setShowAllEV(e.target.checked)}
+                />
+                EV &lt; 104%
+              </label>
+              <select
+                value={sortDirection}
+                onChange={(e) => setSortDirection(e.target.value)}
+                className="rounded-lg border border-white/15 bg-white/10 px-2 py-1 backdrop-blur-xl"
               >
-                {first.event?.home} vs {first.event?.away}
-              </div>
-              <div style={{ color: "#aaa", fontSize: "0.9rem" }}>
-                {first.event?.league}
-              </div>
-              <div style={{ margin: "0.5rem 0" }}>
-                Starttid (DK):{" "}
-                <strong>{formatDanishTime(first.event?.date)}</strong>
-              </div>
-              {group.map((bet, i) => {
-                const fair = parseFloat(bet.market?.[bet.betSide]);
-                const bookmaker = parseFloat(bet.bookmakerOdds?.[bet.betSide]);
-                const minOdds = fair * 1.04;
-                const isStarred = myBets.some((b) => b.id === bet.id);
-                return (
-                  <div key={bet.id} style={{ marginTop: i === 0 ? 0 : "1rem" }}>
-                    {i !== 0 && <hr style={{ border: "1px solid #333" }} />}
-                    <div style={{ marginTop: "0.5rem" }}>
-                      Marked:{" "}
-                      <strong>
-                        {bet.market?.name} {bet.market?.hdp}
-                      </strong>
-                      <span
-                        onClick={() => toggleBet(bet)}
-                        style={{
-                          marginLeft: "10px",
-                          cursor: "pointer",
-                          color: isStarred ? "#FFD700" : "#555",
-                          fontSize: "1.3rem",
-                        }}
-                      >
-                        ★
-                      </span>
-                    </div>
-                    <div>
-                      Vi spiller: <strong>{bet.betSide}</strong>
-                    </div>
-                    <div>
-                      Fair odds: <strong>{fair}</strong>
-                    </div>
-                    <div>
-                      Bookmaker odds: <strong>{bookmaker}</strong>
-                    </div>
-                    <div style={{ margin: "0.5rem 0" }}>
-                      EV%:{" "}
-                      <strong
-                        style={{
-                          color:
-                            bet.expectedValue > 104 ? "#00ff88" : "#f44336",
-                        }}
-                      >
-                        {bet.expectedValue.toFixed(2)}%
-                      </strong>
-                    </div>
-                    {bet.expectedValue > 104 && (
-                      <div>
-                        Mindste odds for 104% EV:{" "}
-                        <strong style={{ color: "#ffd54f" }}>
-                          {minOdds.toFixed(3)}
-                        </strong>
-                      </div>
-                    )}
-                    <a
-                      href={bet.bookmakerOdds?.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color: "#4fc3f7",
-                        textDecoration: "underline",
-                      }}
-                    >
-                      Gå til odds
-                    </a>
-                  </div>
-                );
-              })}
+                <option value="asc">Tidligst</option>
+                <option value="desc">Senest</option>
+              </select>
             </div>
-          );
-        })}
+          </div>
+        </div>
       </div>
+
+      {/* blob animation */}
+      <style>{`
+        @keyframes blobFloat {
+          0%, 100% { transform: translate3d(0,0,0) rotate(0deg); }
+          50% { transform: translate3d(10px, -12px, 0) rotate(8deg); }
+        }
+        .liquid-blob { animation: blobFloat 12s ease-in-out infinite; filter: blur(12px); }
+        .liquid-blob2 { animation: blobFloat 14s ease-in-out infinite reverse; filter: blur(10px); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }
-
-export default App;

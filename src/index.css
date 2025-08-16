@@ -1,4 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* System font stack + lidt skarpere rendering */
+:root {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Lys/mørk baggrundsfarve fallback (App styrer selve temaet med en .dark klasse på en wrapper) */
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
-  background-color: #000000;
-  color: #ffffff;
+  margin: 0;
+  background: #071b26; /* matcher dit dark tema */
+}
+
+/* Scrollbar (diskret) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+*::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* Glass ripple (no JS libs) */
+.button-ripple {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.button-ripple::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--x, 50%) var(--y, 50%),
+    rgba(255, 255, 255, 0.35),
+    transparent 40%
+  );
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+.button-ripple:active::after {
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+
+/* Liga-rail: edge-fade så indhold ikke "slår" mod kanten */
+.rail-wrap {
+  position: relative;
+}
+.rail-wrap::before,
+.rail-wrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+}
+/* Justér farverne let hvis du har lyst – disse matcher dark glass */
+.rail-wrap::before {
+  left: 0;
+  background: linear-gradient(to right, rgba(3, 7, 18, 0.8), rgba(3, 7, 18, 0));
+}
+.rail-wrap::after {
+  right: 0;
+  background: linear-gradient(to left, rgba(3, 7, 18, 0.8), rgba(3, 7, 18, 0));
+}
+
+/* Scrollbar styling (diskret) */
+.rail {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
+}
+.rail::-webkit-scrollbar {
+  height: 8px;
+}
+.rail::-webkit-scrollbar-track {
+  background: transparent;
+}
+.rail::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+.rail:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/* Skjul helt hvis du vil: aktivér kun på hover (valgfrit) */
+/*
+.rail::-webkit-scrollbar { height: 0; }
+.rail:hover::-webkit-scrollbar { height: 8px; }
+*/
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-blob,
+  .liquid-blob2 {
+    animation: none !important;
+  }
+  .button-ripple::after {
+    transition: none !important;
+  }
 }
