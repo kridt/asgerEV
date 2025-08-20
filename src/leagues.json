@@ -38,6 +38,16 @@
     "slug": "denmark-superliga"
   },
   {
+    "eventsCount": 3,
+    "name": "Denmark - 2nd Division",
+    "slug": "denmark-2nd-division"
+  },
+  {
+    "eventsCount": 8,
+    "name": "Denmark - Division 1",
+    "slug": "denmark-division-1"
+  },
+  {
     "eventsCount": 4,
     "name": "Sweden - Allsvenskan",
     "slug": "sweden-allsvenskan"
