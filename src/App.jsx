@@ -16,7 +16,13 @@ import MatchCard from "./components/MatchCard";
 const db = new Localbase("evbets");
 
 // Whitelists/filters
-const VALID_SPORTS = ["Football", "Tennis", "Basketball", "Esports"];
+const VALID_SPORTS = [
+  "Football",
+  "Tennis",
+  "Basketball",
+  "Esports",
+  "Baseball",
+];
 const FOOTBALL_WHITELIST = footballLeagues.map((l) => l.name);
 
 // --- Helpers (v3-safe) ---
@@ -89,6 +95,10 @@ function isRelevantBet(b) {
     return ok;
   }
   if (sport === "Esports") {
+    return true;
+  }
+
+  if (sport === "Baseball") {
     return true;
   }
   console.log("FILTERED@sport", { reason: "unknown_sport", sport, b });
