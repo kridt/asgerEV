@@ -66,34 +66,14 @@ function isRelevantBet(b) {
   }
 
   if (sport === "Tennis") {
-    /* const ok = [
-      "Wimbledon",
-      "Grand Slam",
-      "ATP",
-      "Australian Open",
-      "Roland Garros",
-      "US Open",
-      "French Open",
-    ].some((t) => league.includes(t));
-    if (!ok)
-      console.log("FILTERED@tennis", {
-        reason: "league_not_relevant",
-        league,
-        b,
-      }); */
+    // Midlertidigt: accepter alt tennis
     return true;
   }
 
-  if (sport === "Basketball") {
-    return true;
-  }
-  if (sport === "Esports") {
-    return true;
-  }
+  if (sport === "Basketball") return true;
+  if (sport === "Esports") return true;
+  if (sport === "Baseball") return true;
 
-  if (sport === "Baseball") {
-    return true;
-  }
   console.log("FILTERED@sport", { reason: "unknown_sport", sport, b });
   return false;
 }
@@ -102,6 +82,8 @@ export default function App({ isMyBets }) {
   const apiKey = import.meta.env.VITE_API_KEY;
   const [theme, setTheme] = useTheme("dark");
   const dark = theme === "dark";
+
+  const [apiVersion, setApiVersion] = useState("v2"); // 👈 V2/V3 toggle state
 
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -166,7 +148,7 @@ export default function App({ isMyBets }) {
 
       try {
         setLoading(true);
-        const url = `https://api.odds-api.io/v3/value-bets?apiKey=${apiKey}&bookmaker=${selectedBookmaker}&includeEventDetails=true`;
+        const url = `https://api.odds-api.io/${apiVersion}/value-bets?apiKey=${apiKey}&bookmaker=${selectedBookmaker}&includeEventDetails=true`;
         console.log("FETCH: url", url);
         const res = await fetch(url, signal ? { signal } : undefined);
         const raw = await res.json();
@@ -222,10 +204,6 @@ export default function App({ isMyBets }) {
                 fairOdds && bmOdds ? (bmOdds / fairOdds) * 100 : 0;
 
               const hdp = getHdp(b);
-              if (hdp != null && Number.isFinite(hdp)) {
-                // valgfri log – nyttig til at se hvor spread bet findes
-                // console.log("INFO@hdp", { id: b.id, hdp });
-              }
 
               // Log edge cases
               if (!bmOdds)
@@ -271,7 +249,7 @@ export default function App({ isMyBets }) {
         setLoading(false);
       }
     },
-    [apiKey, isMyBets, selectedBookmaker]
+    [apiKey, apiVersion, isMyBets, selectedBookmaker]
   );
 
   // Effect med AbortController
@@ -462,6 +440,36 @@ export default function App({ isMyBets }) {
                 setSelectedBookmaker(v);
               }}
             />
+          </div>
+
+          {/* API Version Toggle (V2 | V3) */}
+          <div className="mt-4 flex items-center gap-3 text-xs text-white/80">
+            <span>API Version:</span>
+            <div className="flex gap-2">
+              {["v2", "v3"].map((ver) => {
+                const active = apiVersion === ver;
+                return (
+                  <button
+                    key={ver}
+                    onClick={() => {
+                      if (apiVersion !== ver) {
+                        console.log("UI@apiVersionChange", ver);
+                        setApiVersion(ver);
+                      }
+                    }}
+                    className={
+                      "rounded-2xl border px-4 py-2 text-sm backdrop-blur-xl transition " +
+                      (active
+                        ? "border-emerald-400/40 bg-emerald-400/20 text-emerald-100"
+                        : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10")
+                    }
+                    aria-pressed={active}
+                  >
+                    {ver.toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </section>
 
