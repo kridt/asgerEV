@@ -66,7 +66,7 @@ function isRelevantBet(b) {
   }
 
   if (sport === "Tennis") {
-    const ok = [
+    /* const ok = [
       "Wimbledon",
       "Grand Slam",
       "ATP",
@@ -80,19 +80,12 @@ function isRelevantBet(b) {
         reason: "league_not_relevant",
         league,
         b,
-      });
-    return ok;
+      }); */
+    return true;
   }
 
   if (sport === "Basketball") {
-    const ok = league.includes("NBA Summer League");
-    if (!ok)
-      console.log("FILTERED@basketball", {
-        reason: "league_not_relevant",
-        league,
-        b,
-      });
-    return ok;
+    return true;
   }
   if (sport === "Esports") {
     return true;
