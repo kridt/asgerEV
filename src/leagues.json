@@ -76,13 +76,43 @@
     "slug": "uefa-champions-league-qualifiers"
   },
   {
-    "eventsCount": 30,
-    "name": "UEFA - Conference League Qualifiers",
-    "slug": "uefa-conference-league-qualifiers"
-  },
-  {
     "eventsCount": 12,
     "name": "UEFA - Europa League Qualifiers",
     "slug": "uefa-europa-league-qualifiers"
+  },
+  {
+    "eventsCount": 23,
+    "name": "England - EFL Cup",
+    "slug": "england-efl-cup"
+  },
+  {
+    "eventsCount": 2,
+    "name": "Germany - Cup",
+    "slug": "germany-cup"
+  },
+  {
+    "eventsCount": 18,
+    "name": "UEFA - Champions League",
+    "slug": "uefa-champions-league"
+  },
+  {
+    "eventsCount": 16,
+    "name": "FIFA - World Cup Qualifiers Africa",
+    "slug": "fifa-world-cup-qualifiers-africa"
+  },
+  {
+    "eventsCount": 5,
+    "name": "FIFA - World Cup Qualifiers CONCACAF",
+    "slug": "fifa-world-cup-qualifiers-concacaf"
+  },
+  {
+    "eventsCount": 17,
+    "name": "FIFA - World Cup Qualifiers Europe",
+    "slug": "fifa-world-cup-qualifiers-europe"
+  },
+  {
+    "eventsCount": 7,
+    "name": "FIFA - World Cup Qualifiers South America",
+    "slug": "fifa-world-cup-qualifiers-south-america"
   }
 ]
