@@ -81,6 +81,16 @@
     "slug": "uefa-europa-league-qualifiers"
   },
   {
+    "eventsCount": 52,
+    "name": "International Clubs - UEFA Europa League",
+    "slug": "international-clubs-uefa-europa-league"
+  },
+  {
+    "eventsCount": 36,
+    "name": "International Clubs - UEFA Conference League",
+    "slug": "international-clubs-uefa-conference-league"
+  },
+  {
     "eventsCount": 23,
     "name": "England - EFL Cup",
     "slug": "england-efl-cup"
