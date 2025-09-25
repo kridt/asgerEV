@@ -48,6 +48,7 @@ const getHdp = (b) => {
 function isRelevantBet(b) {
   const sport = b?.event?.sport;
   const league = b?.event?.league || "";
+  console.log("FILTERED", { sport, league, b });
 
   if (!VALID_SPORTS.includes(sport)) {
     console.log("FILTERED@sport", { reason: "invalid_sport", sport, b });
