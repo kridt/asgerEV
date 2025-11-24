@@ -84,7 +84,7 @@ export default function App({ isMyBets }) {
   const [theme, setTheme] = useTheme("dark");
   const dark = theme === "dark";
 
-  const [apiVersion, setApiVersion] = useState("v2"); // 👈 V2/V3 toggle state
+  const [apiVersion, setApiVersion] = useState("v3"); // 👈 V2/V3 toggle state
 
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(true);
